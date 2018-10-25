@@ -2,6 +2,7 @@ import tensorflow as tf
 import pandas as pd
 import os
 
+DNNClassifier=""
 #This function transform csv files to tfrecords, to improve performance of algoritms.
 #To generate again and replace files send 1 as parameter
 def csvToTfRecords(replace=0, csv_dir="traces_csv", tfr_dir="traces_tfrecords"):
@@ -30,15 +31,54 @@ def csvToTfRecords(replace=0, csv_dir="traces_csv", tfr_dir="traces_tfrecords"):
 def parse_fn(record):
 	#Transform string data to features
 	# TODO(H): Change datatypes if is necessary when test with real dataset, and using tf.cast or tf.convert_to_tensor
-    features={
-      'inputs': tf.FixedLenFeature([], tf.float),
-      'labels': tf.FixedLenFeature([], tf.float),
-    }
+	features={
+		'inputs': tf.FixedLenFeature([], tf.float),
+		'labels': tf.FixedLenFeature([], tf.float),
+	}
 
-    parsed = tf.parse_single_example(record, features)
+	parsed = tf.parse_single_example(record, features)
 
-    inputs = tf.cast(parsed['inputs'], float64)
-    labels = tf.cast(parsed['labels'], float64)
+	inputs = tf.cast(parsed['inputs'], float64)
+	labels = tf.cast(parsed['labels'], float64)
 
-    return {'inputs': inputs}, {'labels': labels}
+	return {'inputs': inputs}, {'labels': labels}
 
+
+
+def input_fn(tfr_dir="traces_tfrecords"):
+	#get dataset
+	dataset = (
+		tf.data.TFRecordDataset(os.listdir(tfr_dir))
+		.map(parse_fn)
+		.batch(1024)
+		)
+
+	iterator = dataset.make_one_shot_iterator()
+
+	inputs, labels = iterator.get_next()
+
+	#Return a dictionary of inputs and labels
+	return inputs, labels
+
+def initialize_estimator():
+	#Estimator
+	global DNNClassifier
+	DNNClassifier = tf.estimator.DNNClassifier(
+		feature_columns = [tf.feature_column.numeric_column(key='inputs', dtype=tf.float64, shape=(377,))],
+		hidden_units = [256, 256, 256, 256],
+		n_classes = 96,
+		model_dir = '/tmp/tf_model'
+		)
+
+def train_and_evaluate(tfr_train_dir="traces_tfrecords/train", tfr_eval_dir="traces_tfrecords/train" )
+	#Spec
+	global DNNClassifier
+	train_s = tf.estimator.TrainSpec(input_fn = lambda: input_fn(tfr_train_dir) , max_steps=1000)
+	eval_s = tf.estimator.EvalSpec(input_fn = lambda: input_fn(tfr_eval_dir) )
+
+	tf.estimator.train_and_evaluate(DNNClassifier, train_s, eval_s)
+
+#TODO(H): Create main
+#Predictions:
+train_and_evaluate()
+predictions = list(DNNClassifier.predict(input_fn = lambda: input_fn('traces_tfrecords/test')))
