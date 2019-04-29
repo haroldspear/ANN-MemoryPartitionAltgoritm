@@ -29,7 +29,7 @@ Use:
   workon envname
 ```
 
-Install requeriments:
+Install requirements:
 ```
   pip install -r requirements.txt
 ```
