@@ -40,3 +40,7 @@ Install requirements:
   python main_k.py
 ```
 Use menu options, split dataset, define model, load model, train and evaluate and predict.
+
+## Future Work
+
+Try different datasets with new algorithms.
